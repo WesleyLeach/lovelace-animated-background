@@ -1,3 +1,38 @@
+# Animated backgrounds for lovelace
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
+
+Animated backgrounds for lovelace with transparent cards style
+
+## Add transparent for Top Model
+
+- Added transparent for top Pannel
+```yaml
+animated_background:
+  ...
+  transparent_panel: true/false
+  ...
+```
+
+Sorry but now case sensitive (only lower)
+
+## ADD CHAGES FOR HOMEASSISTANT VERSION 2023.04.0
+
+- Fixed errors in new version Home Assistant. (Thanks [dreimer1986/lovelace-animated-background](https://github.com/dreimer1986/lovelace-animated-background.git)
+- Added transparent mode for cards.
+
+- `opacity:` - Number for transparent card level ( 0 - 99 ).
+example:
+```yaml
+animated_background:
+  default_url: "https://cdn.flixel.com/flixel/ypy8bw9fgw1zv2b4htp2.hd.mp4"
+  opacity: 80
+  included_users:
+    - Villhellm
+  # This entity is just an example, use whatever entity you would like
+  entity: "weather.home"
+```
+
+
 # MAJOR BREAKING CHANGE IN v0.5.0+
 YOUR ANIMATED BACKGROUND CONFIGURATION WILL NEED TO BE UPDATED, follow the new configuration guidelines below.
 
