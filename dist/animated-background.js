@@ -4,17 +4,19 @@ const Log_Prefix = "Animated Background: "
 
 //globals
 var Root;
-var Panel_Holder;
 var Hui;
+var Header;
 var Lovelace;
 var Animated_Config;
 var Haobj = null;
 var View;
-var Debug_Mode = false;
+var Panel_Holder;
+var Debug_Mode = true;
 var Loaded = false;
 var View_Loaded = false;
 var Meme_Remover = null;
 var Meme_Count = 0;
+var Opacity = 99;
 
 //state tracking variables
 let Previous_State;
@@ -52,10 +54,12 @@ function randomIntFromInterval(min, max) { // min and max included
 //reset all DOM variables
 function getVars() {
   Root = document.querySelector("home-assistant");
+  Header = Root;
   Root = Root && Root.shadowRoot;
   Root = Root && Root.querySelector("home-assistant-main");
   Root = Root && Root.shadowRoot;
   Root = Root && Root.querySelector("app-drawer-layout partial-panel-resolver, ha-drawer partial-panel-resolver");
+  
   Root = (Root && Root.shadowRoot) || Root;
   Root = Root && Root.querySelector("ha-panel-lovelace");
   if (Root) {
@@ -64,6 +68,7 @@ function getVars() {
   Root = Root && Root.shadowRoot;
   Root = Root && Root.querySelector("hui-root");
   Hui = Root;
+
   if (Root) {
     Lovelace = Root.lovelace;
     if (Lovelace) {
@@ -145,10 +150,12 @@ function currentConfig() {
   if (current_view_path == undefined) {
     return return_config;
   }
+  
   if (Animated_Config) {
     if (Animated_Config.entity || Animated_Config.default_url) {
       return_config = Animated_Config;
     }
+
 
     if (Animated_Config.views) {
       Animated_Config.views.forEach(view => {
@@ -320,6 +327,7 @@ function enabled() {
   return temp_enabled;
 }
 
+
 //returns selected entity's current state if it is available
 function getEntityState(entity) {
   var return_state = null;
@@ -433,6 +441,8 @@ function renderBackgroundHTML() {
     else {
       doc_body = `<img src='${state_url}'>`
     }
+
+    
     var source_doc = `
     <html>
     <head>
@@ -457,7 +467,7 @@ function renderBackgroundHTML() {
           left: 50%;
           transform: translate(-50%, -50%);
         }
-
+        
         img {
           min-width: 100%;
           min-height: 100%;
@@ -482,9 +492,13 @@ function renderBackgroundHTML() {
       style.innerHTML = `
       .bg-video{
           min-width: 100vw; 
-          min-height: 100vh;
-          
+          min-height: 100vh;    
       }
+      
+      #view {
+          background: none;
+        }
+      
       .bg-wrap{
           position: fixed;
           right: 0;
@@ -493,14 +507,45 @@ function renderBackgroundHTML() {
           min-height: 100vh;
           z-index: -10;
       }`;
+
+      if (parseInt(current_config.opacity) > 0.0) {
+        Opacity = current_config.opacity;
+      }
+
+      var transparent_body = document.createElement ("style");
+      transparent_body.innerHTML = `
+        hui-masonry-view {
+    	  opacity: 0.` + Opacity + `;
+        }
+      `;
+
+// transparent for top Pannel
+      STATUS_MESSAGE (current_config.transparent_panel);
+      if (current_config.transparent_panel) {
+        var html_element = document.querySelector("html");
+        html_element.style.removeProperty ('--app-header-background-color');
+      
+        var ha_style = `<style>
+    	    html {
+    		--primary-color:initial;
+    	    }`;
+        Header.insertAdjacentHTML('beforeBegin',ha_style);
+      }
+
       var div = document.createElement("div");
       div.id = "background-video";
-      div.className = "bg-wrap"
+      div.className = "bg-wrap";
       div.innerHTML = `
-     <iframe id="background-iframe" class="bg-video" frameborder="0" srcdoc="${source_doc}"/> 
-    `;
+       <iframe id="background-iframe" class="bg-video" frameborder="0" srcdoc="${source_doc}"/> 
+      
+      `;
+    
       Root.shadowRoot.appendChild(style);
-      Root.shadowRoot.appendChild(div)
+      Root.shadowRoot.appendChild(div);
+      View.insertBefore(transparent_body,View.firstChild);
+      
+      View.setAttribute ("style","background:none;");
+      
       Previous_Url = state_url;
     }
     else {
@@ -542,6 +587,7 @@ function removeDefaultBackground(node, current_config) {
 function restoreDefaultBackground(node) {
   node.style.background = null;
 }
+
 
 //remove background every 100 milliseconds for 2 seconds because race condition memes
 function processDefaultBackground(temp_enabled) {
