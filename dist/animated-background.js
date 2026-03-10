@@ -341,11 +341,12 @@ function getEntityState(entity) {
 }
 
 //main render function
+//main render function
 function renderBackgroundHTML() {
   var current_config = currentConfig();
   var state_url = "";
   var temp_enabled = true;
-  //rerender background if entity has changed (to avoid no background refresh if the new entity happens to have the same state)
+  
   if (current_config && current_config.entity && Previous_Entity != current_config.entity) {
     Previous_State = null;
   }
@@ -354,7 +355,6 @@ function renderBackgroundHTML() {
     Previous_State = null;
   }
 
-  //get state of config object
   if (current_config) {
     if (current_config.entity && current_config.state_url) {
       Previous_Entity = current_config.entity;
@@ -363,198 +363,98 @@ function renderBackgroundHTML() {
         if (Previous_State != current_state) {
           View_Loaded = false;
           DEBUG_MESSAGE("Configured entity " + current_config.entity + " is now " + current_state, true);
-          if (current_config.state_url) {
-            var url = current_config.state_url[current_state];
-            if (Array.isArray(url)) {
-              state_url = url[randomIntFromInterval(0, url.length - 1)];
-            }
-            else {
-              state_url = current_config.state_url[current_state];
-            }
-          }
+          var url = current_config.state_url[current_state];
+          state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
           Previous_State = current_state;
         }
-      }
-      else {
-        DEBUG_MESSAGE("No state_url found for the current state '" + current_state + "'. Attempting to set default_url")
+      } else {
+        DEBUG_MESSAGE("No state_url found. Attempting default_url");
         Previous_State = current_state;
         Previous_Url = null;
         var url = current_config.default_url;
-        if (url) {
-          if (Array.isArray(url)) {
-            state_url = url[randomIntFromInterval(0, url.length - 1)];
-          }
-          else {
-            state_url = url;
-          }
-        }
-        else {
-          if (!current_config.reason) {
-            DEBUG_MESSAGE("No default_url found, restoring lovelace theme")
-          }
-          temp_enabled = false;
-        }
+        state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
+        if (!url) temp_enabled = false;
       }
-    }
-    else {
+    } else {
       var url = current_config.default_url;
-      if (url) {
-        if (Array.isArray(url)) {
-          state_url = url[randomIntFromInterval(0, url.length - 1)];
-        }
-        else {
-          state_url = url;
-        }
-      }
-      else {
-        if (!current_config.reason) {
-          DEBUG_MESSAGE("No default_url found, restoring lovelace theme")
-        }
-        temp_enabled = false;
-      }
+      state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
+      if (!url) temp_enabled = false;
     }
-  }
-  else {
+  } else {
     temp_enabled = false;
   }
 
-  if (temp_enabled) {
-    temp_enabled = enabled();
-  }
-
+  if (temp_enabled) temp_enabled = enabled();
   processDefaultBackground(temp_enabled);
 
-  if (!temp_enabled || !current_config) {
-    return;
-  }
+  if (!temp_enabled || !current_config) return;
 
   Previous_Config = current_config;
 
-  var html_to_render;
   if (state_url != "" && Hui) {
     var bg = Hui.shadowRoot.getElementById("background-iframe");
     var video_type = urlIsVideo(state_url);
-    var doc_body;
-    if (video_type) {
-      doc_body = `<video id='cinemagraph' autoplay='' loop='' preload='' playsinline='' muted='' poster=''><source src='${state_url}' type='video/${video_type}'></video>`
-    }
-    else {
-      doc_body = `<img src='${state_url}'>`
-    }
+    var doc_body = video_type 
+      ? `<video id='cinemagraph' autoplay loop preload playsinline muted><source src='${state_url}' type='video/${video_type}'></video>`
+      : `<img src='${state_url}'>`;
 
-    
     var source_doc = `
     <html>
     <head>
-      <style type='text/css'>
-        body {
-          min-height: 100vh;
-          min-width: 100vw;
-          max-height: 100%;
-          max-width: 100%;
-          overflow: hidden;
-          margin: 0;
-          position: relative;
-        }
-    
-        video {
-          min-width: 100%;
-          min-height: 100%;
-          width: auto;
-          height: auto;
+      <style>
+        body { height: 100vh; width: 100vw; overflow: hidden; margin: 0; }
+        video, img {
+          min-width: 100%; min-height: 100%;
+          width: auto; height: auto;
           position: absolute;
-          top: 50%;
-          left: 50%;
+          top: 50%; left: 50%;
           transform: translate(-50%, -50%);
-        }
-        
-        img {
-          min-width: 100%;
-          min-height: 100%;
-          width: auto;
-          height: auto;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
+          object-fit: cover;
         }
       </style>
     </head>  
-    <body id='source-body'>
-    ${doc_body}
-    </body>
+    <body>${doc_body}</body>
     </html>`;
+
     if (!bg) {
-      if (!current_config.entity) {
-        STATUS_MESSAGE("Applying default background", true);
-      }
       var style = document.createElement("style");
       style.innerHTML = `
-      .bg-video{
-          min-width: 100vw; 
-          min-height: 100vh;    
-      }
-      
-      #view {
-          background: none;
-        }
-      
-      .bg-wrap{
+      .bg-video { width: 100%; height: 100%; border: 0; }
+      #view { background: none !important; }
+      .bg-wrap {
           position: fixed;
-          right: 0;
+          left: 0;
           top: 0;
-          min-width: 100vw; 
-          min-height: 100vh;
-          z-index: -10;
+          width: 100vw;
+          height: 100vh;
+          z-index: -1;
+          pointer-events: none;
+          overflow: hidden;
       }`;
 
-      if (parseInt(current_config.opacity) > 0.0) {
-        Opacity = current_config.opacity;
-      }
+      if (parseInt(current_config.opacity) > 0) Opacity = current_config.opacity;
 
-      var transparent_body = document.createElement ("style");
-      transparent_body.innerHTML = `
-        hui-masonry-view {
-    	  opacity: 0.` + Opacity + `;
-        }
-      `;
+      var transparent_body = document.createElement("style");
+      transparent_body.innerHTML = `hui-masonry-view { opacity: 0.${Opacity}; }`;
 
-// transparent for top Pannel
-      STATUS_MESSAGE (current_config.transparent_panel);
       if (current_config.transparent_panel) {
         var html_element = document.querySelector("html");
-        html_element.style.removeProperty ('--app-header-background-color');
-      
-        var ha_style = `<style>
-    	    html {
-    		--primary-color:initial;
-    	    }`;
-        Header.insertAdjacentHTML('beforeBegin',ha_style);
+        html_element.style.removeProperty('--app-header-background-color');
+        Header.insertAdjacentHTML('beforeBegin', `<style>html { --primary-color:initial; }</style>`);
       }
 
       var div = document.createElement("div");
       div.id = "background-video";
       div.className = "bg-wrap";
-      div.innerHTML = `
-       <iframe id="background-iframe" class="bg-video" frameborder="0" srcdoc="${source_doc}"/> 
-      
-      `;
+      div.innerHTML = `<iframe id="background-iframe" class="bg-video" srcdoc="${source_doc.replace(/"/g, '&quot;')}"></iframe>`;
     
       Root.shadowRoot.appendChild(style);
       Root.shadowRoot.appendChild(div);
-      View.insertBefore(transparent_body,View.firstChild);
-      
-      View.setAttribute ("style","background:none;");
-      
+      View.insertBefore(transparent_body, View.firstChild);
+      View.setAttribute("style", "background:none;");
       Previous_Url = state_url;
-    }
-    else {
+    } else {
       if (current_config.entity || (Previous_Url != state_url)) {
-        if (!current_config.entity) {
-          STATUS_MESSAGE("Applying default background", true);
-          Previous_Entity = null;
-          Previous_State = null;
-        }
         bg.srcdoc = source_doc;
         Previous_Url = state_url;
       }
