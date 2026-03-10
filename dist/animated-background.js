@@ -417,41 +417,64 @@ function renderBackgroundHTML() {
     </html>`;
 
     if (!bg) {
+      if (!current_config.entity) {
+        STATUS_MESSAGE("Applying default background", true);
+      }
+      
+      // 1. Move the style to the main document head to ensure it overrides everything
       var style = document.createElement("style");
+      style.id = "animated-bg-styles";
       style.innerHTML = `
-      .bg-video { width: 100%; height: 100%; border: 0; }
-      #view { background: none !important; }
-      .bg-wrap {
-          position: fixed;
-          left: 0;
-          top: 0;
-          width: 100vw;
-          height: 100vh;
-          z-index: -1;
-          pointer-events: none;
-          overflow: hidden;
-      }`;
-
-      if (parseInt(current_config.opacity) > 0) Opacity = current_config.opacity;
-
-      var transparent_body = document.createElement("style");
-      transparent_body.innerHTML = `hui-masonry-view { opacity: 0.${Opacity}; }`;
-
-      if (current_config.transparent_panel) {
-        var html_element = document.querySelector("html");
-        html_element.style.removeProperty('--app-header-background-color');
-        Header.insertAdjacentHTML('beforeBegin', `<style>html { --primary-color:initial; }</style>`);
+      #background-video {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: -1 !important;
+          pointer-events: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+      }
+      
+      #background-iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
       }
 
+      /* Force the view and its containers to be transparent */
+      #view, .container, hui-masonry-view, hui-view, .column {
+          background: none !important;
+          background-color: transparent !important;
+      }
+      `;
+      document.head.appendChild(style);
+
+      if (parseInt(current_config.opacity) > 0.0) {
+        Opacity = current_config.opacity;
+      }
+
+      // 2. Adjust transparency for the masonry view
+      var transparent_body = document.createElement("style");
+      transparent_body.innerHTML = `
+        hui-masonry-view {
+    	  opacity: 0.${Opacity};
+        }
+      `;
+
+      // 3. Create and inject the div into the BODY to prevent layout shifting
       var div = document.createElement("div");
       div.id = "background-video";
-      div.className = "bg-wrap";
-      div.innerHTML = `<iframe id="background-iframe" class="bg-video" srcdoc="${source_doc.replace(/"/g, '&quot;')}"></iframe>`;
+      div.innerHTML = `<iframe id="background-iframe" srcdoc="${source_doc.replace(/"/g, '&quot;')}"></iframe>`;
     
-      Root.shadowRoot.appendChild(style);
-      Root.shadowRoot.appendChild(div);
+      // Injects into the actual body so it can't push the Shadow DOM content
+      document.body.appendChild(div);
+      
       View.insertBefore(transparent_body, View.firstChild);
-      View.setAttribute("style", "background:none;");
+      View.setAttribute("style", "background:none !important;");
+      
       Previous_Url = state_url;
     } else {
       if (current_config.entity || (Previous_Url != state_url)) {
