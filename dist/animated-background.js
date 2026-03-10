@@ -1,4 +1,4 @@
-//const
+
 const Debug_Prefix = "Animated Background DEBUG: ";
 const Log_Prefix = "Animated Background: "
 
@@ -11,7 +11,7 @@ var Animated_Config;
 var Haobj = null;
 var View;
 var Panel_Holder;
-var Debug_Mode = true;
+var Debug_Mode = false;
 var Loaded = false;
 var View_Loaded = false;
 var Meme_Remover = null;
@@ -341,12 +341,16 @@ function getEntityState(entity) {
 }
 
 //main render function
-//main render function
 function renderBackgroundHTML() {
+  Opacity = 99;
   var current_config = currentConfig();
+  var resolved_opacity = current_config && current_config.opacity !== undefined ? current_config.opacity : (Animated_Config ? Animated_Config.opacity : 99);
+  if (parseInt(resolved_opacity) > 0) {
+    Opacity = resolved_opacity;
+  }
   var state_url = "";
   var temp_enabled = true;
-  
+  //rerender background if entity has changed (to avoid no background refresh if the new entity happens to have the same state)
   if (current_config && current_config.entity && Previous_Entity != current_config.entity) {
     Previous_State = null;
   }
@@ -355,6 +359,7 @@ function renderBackgroundHTML() {
     Previous_State = null;
   }
 
+  //get state of config object
   if (current_config) {
     if (current_config.entity && current_config.state_url) {
       Previous_Entity = current_config.entity;
@@ -363,125 +368,223 @@ function renderBackgroundHTML() {
         if (Previous_State != current_state) {
           View_Loaded = false;
           DEBUG_MESSAGE("Configured entity " + current_config.entity + " is now " + current_state, true);
-          var url = current_config.state_url[current_state];
-          state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
+          if (current_config.state_url) {
+            var url = current_config.state_url[current_state];
+            if (Array.isArray(url)) {
+              state_url = url[randomIntFromInterval(0, url.length - 1)];
+            }
+            else {
+              state_url = current_config.state_url[current_state];
+            }
+          }
           Previous_State = current_state;
         }
-      } else {
-        DEBUG_MESSAGE("No state_url found. Attempting default_url");
+      }
+      else {
+        DEBUG_MESSAGE("No state_url found for the current state '" + current_state + "'. Attempting to set default_url")
         Previous_State = current_state;
         Previous_Url = null;
         var url = current_config.default_url;
-        state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
-        if (!url) temp_enabled = false;
+        if (url) {
+          if (Array.isArray(url)) {
+            state_url = url[randomIntFromInterval(0, url.length - 1)];
+          }
+          else {
+            state_url = url;
+          }
+        }
+        else {
+          if (!current_config.reason) {
+            DEBUG_MESSAGE("No default_url found, restoring lovelace theme")
+          }
+          temp_enabled = false;
+        }
       }
-    } else {
-      var url = current_config.default_url;
-      state_url = Array.isArray(url) ? url[randomIntFromInterval(0, url.length - 1)] : url;
-      if (!url) temp_enabled = false;
     }
-  } else {
+    else {
+      var url = current_config.default_url;
+      if (url) {
+        if (Array.isArray(url)) {
+          state_url = url[randomIntFromInterval(0, url.length - 1)];
+        }
+        else {
+          state_url = url;
+        }
+      }
+      else {
+        if (!current_config.reason) {
+          DEBUG_MESSAGE("No default_url found, restoring lovelace theme")
+        }
+        temp_enabled = false;
+      }
+    }
+  }
+  else {
     temp_enabled = false;
   }
 
-  if (temp_enabled) temp_enabled = enabled();
+  if (temp_enabled) {
+    temp_enabled = enabled();
+  }
+
   processDefaultBackground(temp_enabled);
 
-  if (!temp_enabled || !current_config) return;
+  if (!temp_enabled || !current_config) {
+    return;
+  }
 
   Previous_Config = current_config;
 
+  var html_to_render;
   if (state_url != "" && Hui) {
     var bg = Hui.shadowRoot.getElementById("background-iframe");
     var video_type = urlIsVideo(state_url);
-    var doc_body = video_type 
-      ? `<video id='cinemagraph' autoplay loop preload playsinline muted><source src='${state_url}' type='video/${video_type}'></video>`
-      : `<img src='${state_url}'>`;
+    var doc_body;
+    if (video_type) {
+      doc_body = `<video id='cinemagraph' autoplay='' loop='' preload='' playsinline='' muted='' poster=''><source src='${state_url}' type='video/${video_type}'></video>`
+    }
+    else {
+      doc_body = `<img src='${state_url}'>`
+    }
 
+    
     var source_doc = `
     <html>
     <head>
-      <style>
-        body { height: 100vh; width: 100vw; overflow: hidden; margin: 0; }
-        video, img {
-          min-width: 100%; min-height: 100%;
-          width: auto; height: auto;
+      <style type='text/css'>
+        body {
+          min-height: 100vh;
+          min-width: 100vw;
+          max-height: 100%;
+          max-width: 100%;
+          overflow: hidden;
+          margin: 0;
+          position: relative;
+        }
+    
+        video {
+          min-width: 100%;
+          min-height: 100%;
+          width: auto;
+          height: auto;
           position: absolute;
-          top: 50%; left: 50%;
+          top: 50%;
+          left: 50%;
           transform: translate(-50%, -50%);
-          object-fit: cover;
+        }
+        
+        img {
+          min-width: 100%;
+          min-height: 100%;
+          width: auto;
+          height: auto;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
         }
       </style>
     </head>  
-    <body>${doc_body}</body>
+    <body id='source-body'>
+    ${doc_body}
+    </body>
     </html>`;
-
     if (!bg) {
       if (!current_config.entity) {
         STATUS_MESSAGE("Applying default background", true);
       }
-      
-      // 1. Move the style to the main document head to ensure it overrides everything
       var style = document.createElement("style");
-      style.id = "animated-bg-styles";
       style.innerHTML = `
-      #background-video {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          z-index: -1 !important;
-          pointer-events: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
+      .bg-video{
+          min-width: 100vw; 
+          min-height: 100vh;    
       }
       
-      #background-iframe {
-          width: 100%;
-          height: 100%;
-          border: none;
-      }
-
-      /* Force the view and its containers to be transparent */
-      #view, .container, hui-masonry-view, hui-view, .column {
-          background: none !important;
-          background-color: transparent !important;
-      }
-      `;
-      document.head.appendChild(style);
-
-      if (parseInt(current_config.opacity) > 0.0) {
-        Opacity = current_config.opacity;
-      }
-
-      // 2. Adjust transparency for the masonry view
-      var transparent_body = document.createElement("style");
-      transparent_body.innerHTML = `
-        hui-masonry-view {
-    	  opacity: 0.${Opacity};
+      #view {
+          background: none;
         }
+      
+      .bg-wrap{
+          position: fixed;
+          left: 0;
+          top: 0;
+          min-width: 100vw; 
+          min-height: 100vh;
+          z-index: -12;
+          pointer-events: none;
+      }
+
+      #background-iframe{
+          pointer-events: none;
+      }
+
+      hui-view-background{
+          background:none;
+      }
       `;
 
-      // 3. Create and inject the div into the BODY to prevent layout shifting
+      // Only apply opacity if configured - note this creates a CSS stacking
+      // context which may cause overlays (e.g. Bubble Card) to appear behind
+      // the background. Remove opacity: from your config if this affects you.
+      if (Opacity < 99) {
+        style.innerHTML += `
+      hui-masonry-view,
+      hui-sections-view,
+      hui-panel-view {
+          opacity: 0.` + Opacity + `;
+      }`;
+      }
+
+// transparent for top Pannel
       var div = document.createElement("div");
       div.id = "background-video";
-      div.innerHTML = `<iframe id="background-iframe" srcdoc="${source_doc.replace(/"/g, '&quot;')}"></iframe>`;
-    
-      // Injects into the actual body so it can't push the Shadow DOM content
-      document.body.appendChild(div);
+      div.className = "bg-wrap";
+      div.innerHTML = `
+       <iframe id="background-iframe" class="bg-video" frameborder="0" style="pointer-events:none;" srcdoc="${source_doc}"/> 
       
-      View.insertBefore(transparent_body, View.firstChild);
-      View.setAttribute("style", "background:none !important;");
+      `;
+    
+      Root.shadowRoot.appendChild(style);
+      Root.shadowRoot.appendChild(div);
+      
+      View.setAttribute ("style","background:none;");
       
       Previous_Url = state_url;
-    } else {
+    }
+    else {
       if (current_config.entity || (Previous_Url != state_url)) {
+        if (!current_config.entity) {
+          STATUS_MESSAGE("Applying default background", true);
+          Previous_Entity = null;
+          Previous_State = null;
+        }
         bg.srcdoc = source_doc;
         Previous_Url = state_url;
       }
     }
+
+    }  // <-- this closes the if (state_url != "" && Hui) block
+
+  // transparent for top Panel - evaluated on every render
+  // Fall back to root Animated_Config for top-level settings not present in group/view configs
+  var transparent_panel = current_config.transparent_panel !== undefined ? current_config.transparent_panel : (Animated_Config ? Animated_Config.transparent_panel : false);
+  if (transparent_panel) {
+    if (!Hui.shadowRoot.getElementById('animated-bg-panel-style')) {
+      var ha_style = document.createElement('style');
+      ha_style.id = 'animated-bg-panel-style';
+      ha_style.innerHTML = `
+        .header {
+          background-color: transparent !important;
+        }
+        .toolbar {
+          background-color: transparent !important;
+        }`;
+      Hui.shadowRoot.appendChild(ha_style);
+    }
+  }
+  else {
+    var panelStyle = Hui.shadowRoot.getElementById('animated-bg-panel-style');
+    if (panelStyle) panelStyle.remove();
   }
 }
 
@@ -585,6 +688,19 @@ function setDebugMode() {
   }
 }
 
+function cleanupDOM() {
+  if (Root && Root.shadowRoot) {
+    var oldDiv = Root.shadowRoot.getElementById('background-video');
+    if (oldDiv) oldDiv.remove();
+    var oldStyles = Root.shadowRoot.querySelectorAll('style');
+    oldStyles.forEach(function(s) { s.remove(); });
+  }
+  if (Hui && Hui.shadowRoot) {
+    var panelStyle = Hui.shadowRoot.getElementById('animated-bg-panel-style');
+    if (panelStyle) panelStyle.remove();
+  }
+}
+
 //main function
 function run() {
   getVars();
@@ -663,6 +779,7 @@ function run() {
 }
 
 function restart() {
+  cleanupDOM();
   clearInterval(wait_interval);
   var wait_interval = setInterval(() => {
     getVars()
