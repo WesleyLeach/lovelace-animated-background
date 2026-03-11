@@ -54,11 +54,13 @@ Example:
 
 ### Step 1
 
-Install `animated-background` by copying `animated-background.js` from this repo to `<config directory>/www/animated-background.js` on your Home Assistant instance.
+Install `animated-background` by copying the following files from the `dist/` folder in this repo to `<config directory>/www/` on your Home Assistant instance:
+- `animated-background.js` - The main custom element
+- `style.js` - (Optional) Configuration file if you prefer to use JavaScript-based configuration instead of YAML
 
 ### Step 2
 
-Add the resource to your configuration. If you are in yaml mode follow [the lovelace docs](https://www.home-assistant.io/lovelace/dashboards-and-views/#resources). If you are using the UI to manage resources then go you `<your-ha-address>/config/lovelace/resources` and add the URL `/local/animated-background.js` as a javascript module. 
+Add the resource to your configuration. If you are in yaml mode follow [the lovelace docs](https://www.home-assistant.io/lovelace/dashboards-and-views/#resources). If you are using the UI to manage resources then go you `<your-ha-address>/config/lovelace/resources` and add the URL `/local/animated-background.js` as a javascript module. If using `style.js`, also add `/local/style.js` as a javascript module. 
 
 ### Step 3
 
@@ -124,7 +126,7 @@ Make sure you have [HACS](https://github.com/custom-components/hacs) installed, 
 
 ### Step 2
 
-Add the resource to your configuration. If you are in yaml mode follow [the lovelace docs](https://www.home-assistant.io/lovelace/dashboards-and-views/#resources) and add the URL `/hacsfiles/lovelace-animated-background/animated-background.js` as a module. If you are using the UI to manage resources then click the button at the top of the Animated Background HACS page to automatically add it to your resources.
+Add the resource to your configuration. If you are in yaml mode follow [the lovelace docs](https://www.home-assistant.io/lovelace/dashboards-and-views/#resources) and add the URL `/hacsfiles/lovelace-animated-background/animated-background.js` as a module. If also using `style.js`, add `/hacsfiles/lovelace-animated-background/style.js` as well. If you are using the UI to manage resources then click the button at the top of the Animated Background HACS page to automatically add it to your resources.
 
 ### Step 3
 
@@ -358,6 +360,40 @@ views:
 | excluded_users | list (string) | **Optional** | Users to be excluded
 | excluded_devices | list (string) | **Optional** | Devices to be excluded Ex:  iphone, ipad, windows, macintosh, android
 | background | string | **Optional** | CSS option for the background overlay. Default is 'transparent'
+
+## Alternative Configuration: Using style.js
+
+As an alternative to YAML configuration, you can use the provided `style.js` file for a JavaScript-based configuration approach. This method is useful if you prefer to configure animated backgrounds using JavaScript constants and local video files.
+
+### Setup
+
+1. Copy `style.js` to `<config directory>/www/` on your Home Assistant instance
+2. Edit `style.js` and update the following configuration variables at the top of the file:
+
+```javascript
+const token_ = "YOURAPIKEY";                    // Your Home Assistant API token
+const weatherEntity_ = "weather.home";          // The weather entity to monitor
+const videoPath_ = "/local/animated_backgrounds"; // Path to your local videos
+const weatherControl_ = true;                   // Enable weather-based video selection
+const videoSwitchPeriod_ = 180;                // How often to check and update video (seconds)
+```
+
+3. Update the file arrays for each weather state to match your local video filenames or URLs:
+
+```javascript
+const filesSunny = ['sunny1.mp4', 'sunny2.mp4', 'sunny3.mp4'];
+const filesRainy = ['rainy1.mp4', 'rainy2.mp4'];
+const filesCloudy = ['cloudy1.mp4', 'cloudy2.mp4'];
+// ... etc for other weather states
+```
+
+4. Add both `animated-background.js` and `style.js` as module resources in your Lovelace configuration
+
+The `style.js` approach automatically:
+- Queries your Home Assistant API for weather state changes
+- Selects appropriate videos based on weather conditions
+- Periodically updates the background video
+- Supports both local video files and external URLs
 
 ## Example if you want a different background for night and day when a switch changes (or any combination of entities)
 A few people have asked about tying this to multiple entities. The good news is this is already possible with the use of a template sensor. Here is an example of a template sensor that would allow a different background for night/day when a bedroom switch changes.
