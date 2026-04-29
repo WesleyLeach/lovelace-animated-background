@@ -432,6 +432,7 @@ animated_background:
 # Warning to mobile users
 While I've done my best to perfect the device/user exceptions, I am not perfect. If you are using a mobile device and using an exception to prevent Animated Background from loading, please keep an eye on the Home Assistant app data use. If you notice unusually high usage after installing the plugin open an issue immediately and I will do my best to fix it. With the way themes function after Home Assistant .108 it is possible that the background video is being loaded behind the theme background (though I am pretty sure I've caught and destroyed all the bugs in that area).
 
+<!-- version -0.0.ChCLSQ976FsKxEDbLHpy3dy4d -->
 If you plan on *using* Animated Background on a mobile device, be aware that this will most likely use a lot of mobile data.
 
 [Troubleshooting](https://github.com/thomasloven/hass-config/wiki/Lovelace-Plugins)
